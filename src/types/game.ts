@@ -85,6 +85,21 @@ export interface RaidState {
   currentInteractiveEvent: StoryEvent | null;
 }
 
+export interface LuckCheck {
+  threshold: number;
+  successText: string;
+  failText: string;
+  successMood?: number;
+  successSanity?: number;
+  successHp?: number;
+  successMoney?: number;
+  failMood?: number;
+  failSanity?: number;
+  failHp?: number;
+  failMoney?: number;
+  successLootChance?: number;
+}
+
 export interface StoryEvent {
   id: string;
   text: string;
@@ -95,9 +110,12 @@ export interface StoryEvent {
     resultText: string;
     mood?: number;
     sanity?: number;
+    hp?: number;
+    money?: number;
     combat?: boolean;
     enemyId?: string;
     lootChance?: number;
+    luckCheck?: LuckCheck;
   }[];
 }
 

@@ -177,9 +177,33 @@ export function Game() {
         setPlayer(prev => ({ ...prev, [choice.req.stat]: (prev as any)[choice.req.stat] - choice.req.val }));
       }
     }
+    if (choice.luckCheck) {
+      const lc = choice.luckCheck;
+      const success = Math.random() < lc.threshold;
+      addLog(success ? lc.successText : lc.failText);
+      if (success) {
+        if (lc.successMood) setPlayer(prev => ({ ...prev, mood: Math.min(prev.maxMood, prev.mood + lc.successMood!) }));
+        if (lc.successSanity) setPlayer(prev => ({ ...prev, sanity: Math.min(prev.maxSanity, prev.sanity + lc.successSanity!) }));
+        if (lc.successHp) setPlayer(prev => ({ ...prev, hp: Math.min(prev.maxHp, prev.hp + lc.successHp!) }));
+        if (lc.successMoney) setPlayer(prev => ({ ...prev, money: prev.money + lc.successMoney! }));
+        if (lc.successLootChance && Math.random() < lc.successLootChance) {
+          const loot = generateLootItem(raidState.distance + 500, player.mood);
+          setRaidState(prev => ({ ...prev, tempLoot: [...prev.tempLoot, loot], currentLootItem: loot }));
+          setScene('event'); return;
+        }
+      } else {
+        if (lc.failMood) setPlayer(prev => ({ ...prev, mood: Math.max(0, prev.mood + lc.failMood!) }));
+        if (lc.failSanity) setPlayer(prev => ({ ...prev, sanity: Math.max(0, prev.sanity + lc.failSanity!) }));
+        if (lc.failHp) setPlayer(prev => ({ ...prev, hp: Math.max(1, prev.hp + lc.failHp!) }));
+        if (lc.failMoney) setPlayer(prev => ({ ...prev, money: Math.max(0, prev.money + lc.failMoney!) }));
+      }
+      setScene('raid'); return;
+    }
     addLog(choice.resultText);
     if (choice.mood) setPlayer(prev => ({ ...prev, mood: Math.min(prev.maxMood, prev.mood + choice.mood) }));
     if (choice.sanity) setPlayer(prev => ({ ...prev, sanity: Math.min(prev.maxSanity, prev.sanity + choice.sanity) }));
+    if (choice.hp) setPlayer(prev => ({ ...prev, hp: Math.min(prev.maxHp, Math.max(1, prev.hp + choice.hp)) }));
+    if (choice.money) setPlayer(prev => ({ ...prev, money: Math.max(0, prev.money + choice.money) }));
     if (choice.combat) {
       let enemy: any = ENEMIES[0];
       if (choice.enemyId === 'weak_scavenger') enemy = { name: '受伤的拾荒者', hp: 15, maxHp: 15, atk: 4, exp: 20 };
