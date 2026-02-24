@@ -1,0 +1,122 @@
+import type { Item, Gear } from '../types/game';
+
+export const ITEMS: Record<string, Item> = {
+  medkit: {
+    id: 'medkit',
+    name: '急救包',
+    type: 'consumable',
+    cost: 60,
+    effect: 'heal',
+    value: 40,
+    desc: '恢复40生命',
+    rarity: 'white',
+  },
+  food: {
+    id: 'food',
+    name: '压缩饼干',
+    type: 'consumable',
+    cost: 30,
+    effect: 'satiety',
+    value: 40,
+    desc: '恢复40饱食',
+    rarity: 'white',
+  },
+  alcohol: {
+    id: 'alcohol',
+    name: '陈年威士忌',
+    type: 'consumable',
+    cost: 80,
+    effect: 'mood',
+    value: 50,
+    desc: '恢复50心情，减少10理智',
+    rarity: 'green',
+  },
+  pills: {
+    id: 'pills',
+    name: '镇静剂',
+    type: 'consumable',
+    cost: 120,
+    effect: 'sanity',
+    value: 40,
+    desc: '恢复40理智',
+    rarity: 'blue',
+  },
+};
+
+export const GEAR: Record<string, Gear> = {
+  knife: {
+    id: 'knife',
+    name: '生锈匕首',
+    type: 'weapon',
+    cost: 0,
+    atk: 2,
+    desc: '聊胜于无',
+  },
+  pistol: {
+    id: 'pistol',
+    name: '旧手枪',
+    type: 'weapon',
+    cost: 150,
+    atk: 5,
+    desc: '可靠的伙伴',
+  },
+  rifle: {
+    id: 'rifle',
+    name: '突击步枪',
+    type: 'weapon',
+    cost: 400,
+    atk: 12,
+    desc: '火力压制',
+  },
+  clothes: {
+    id: 'clothes',
+    name: '便服',
+    type: 'armor',
+    cost: 0,
+    def: 0,
+    desc: '不防弹',
+  },
+  vest: {
+    id: 'vest',
+    name: '防弹背心',
+    type: 'armor',
+    cost: 200,
+    def: 3,
+    desc: '减少3点伤害',
+  },
+  heavy: {
+    id: 'heavy',
+    name: '重型装甲',
+    type: 'armor',
+    cost: 500,
+    def: 8,
+    desc: '移动坦克',
+  },
+};
+
+export const RELICS: Record<string, Item> = {
+  vampire: {
+    id: 'vampire',
+    name: '吸血鬼之牙',
+    desc: '击杀敌人恢复 5 HP',
+    rarity: 'purple',
+    type: 'relic',
+    val: 1500,
+  },
+  cat: {
+    id: 'cat',
+    name: '招财猫',
+    desc: '物品出售价格 +20%',
+    rarity: 'purple',
+    type: 'relic',
+    val: 1500,
+  },
+  adrenaline: {
+    id: 'adrenaline',
+    name: '肾上腺素',
+    desc: 'HP < 30% 时造成双倍伤害',
+    rarity: 'purple',
+    type: 'relic',
+    val: 1500,
+  },
+};
