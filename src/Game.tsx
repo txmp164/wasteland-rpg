@@ -81,6 +81,26 @@ export function Game() {
     tempLoot: [], currentLootItem: null, currentInteractiveEvent: null,
   });
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    if (scene !== 'intro' && !audioRef.current) {
+        audioRef.current = new Audio('/audio/Cinderbloom_Echoes.mp3');
+        audioRef.current.loop = true;
+        audioRef.current.volume = 0.5;
+        audioRef.current.play().catch(e => console.error("Audio play failed", e));
+    }
+  }, [scene]);
+
+  const toggleMute = () => {
+      if (audioRef.current) {
+          audioRef.current.muted = !audioRef.current.muted;
+          setIsMuted(audioRef.current.muted);
+      }
+  };
+
+
   const addLog = (msg: string) => {
     const time = new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setLogs(prev => [`[${time}] ${msg}`, ...prev].slice(0, 8));
@@ -540,6 +560,9 @@ export function Game() {
               <div className="flex justify-between text-[10px] text-yellow-600 mb-1 font-bold"><span>撤离飞船启动资金进度</span><span>{Math.floor((player.money / WIN_GOAL) * 100)}%</span></div>
               <div className="h-1 bg-slate-900 border border-slate-700 rounded-full overflow-hidden"><div className="h-full bg-yellow-500 transition-all duration-1000" style={{ width: `${Math.min(100, (player.money / WIN_GOAL) * 100)}%` }}></div></div>
             </div>
+            <button onClick={toggleMute} className="absolute top-8 right-8 text-slate-500 text-xs border border-slate-600 px-2 py-1 rounded hover:text-slate-300">
+               {isMuted ? '🔇' : '🔊'}
+            </button>
           </div>
         )}
 
