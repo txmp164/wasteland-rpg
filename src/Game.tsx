@@ -65,6 +65,11 @@ export function Game() {
   const [teaserCol, setTeaserCol] = useState<number | null>(null);
   const [slotBanner, setSlotBanner] = useState('');
   const [bannerBoost, setBannerBoost] = useState(false);
+  const [isLdw, setIsLdw] = useState(false);
+  const [energyCores, setEnergyCores] = useState(0);
+  const energyCoreTarget = 10;
+  const [consecutiveLosses, setConsecutiveLosses] = useState(0);
+  const [bonusChoice, setBonusChoice] = useState<{ prizes: string[]; chosen: number | null; reward: number } | null>(null);
 
   const [exchangeAssets, setExchangeAssets] = useState<ExchangeAsset[]>(EXCHANGE_ASSETS.map(a => ({ ...a })));
   const [exchangeNews, setExchangeNews] = useState<{ text: string; targetId: string; effect: number } | null>(null);
@@ -233,7 +238,17 @@ export function Game() {
     }
   };
 
+  const handleBonusChoose = (idx: number) => {
+    if (!bonusChoice || bonusChoice.chosen !== null) return;
+    setBonusChoice(prev => prev ? { ...prev, chosen: idx } : null);
+    const reward = bonusChoice.reward;
+    setPlayer(p => ({ ...p, money: p.money + reward }));
+    addLog(`🎁 奖励箱开启！获得 $${reward}`);
+    setTimeout(() => setBonusChoice(null), 1800);
+  };
+
   const handleSpin = () => {
+    if (bonusChoice !== null) return;
     const isFS = freeSpins > 0, isFrenzyS = frenzySpins > 0;
     if (!isFS && !isFrenzyS && player.money < betAmount) { addLog('资金不足！'); return; }
     if (!isFS && !isFrenzyS) {
@@ -242,7 +257,7 @@ export function Game() {
     } else if (isFS) setFreeSpins(prev => Math.max(0, prev - 1));
     else setFrenzySpins(prev => Math.max(0, prev - 1));
 
-    setIsSpinning(true); setSlotGrid(null); setSlotMoodMsg(''); setWinningPositions([]); setTeaserCol(null); setSlotBanner(''); setBannerBoost(false);
+    setIsSpinning(true); setSlotGrid(null); setSlotMoodMsg(''); setWinningPositions([]); setTeaserCol(null); setSlotBanner(''); setBannerBoost(false); setIsLdw(false);
 
     const poolNormal = [{ s: '💀', w: 20 }, { s: '🔧', w: 25 }, { s: '🍗', w: 20 }, { s: '☢️', w: 15 }, { s: '💎', w: 10 }, { s: '7️⃣', w: 4 }, { s: '🃏', w: 4 }, { s: '⭐', w: 2 }];
     const poolVip = [{ s: '💀', w: 35 }, { s: '🔧', w: 10 }, { s: '🍗', w: 10 }, { s: '☢️', w: 15 }, { s: '💎', w: 15 }, { s: '7️⃣', w: 8 }, { s: '🃏', w: 4 }, { s: '⭐', w: 3 }];
@@ -252,7 +267,6 @@ export function Game() {
     if (pool.length === 0) pool.push({ s: '🔧', w: 100 });
     const pick = () => { const tot = pool.reduce((a, b) => a + b.w, 0); let r = Math.random() * tot; for (const p of pool) { r -= p.w; if (r <= 0) return p.s; } return pool[pool.length - 1].s; };
 
-    const grid = Array.from({ length: 3 }, () => Array.from({ length: 5 }, () => pick()));
     const lines = [[0,0,0,0,0],[1,1,1,1,1],[2,2,2,2,2],[0,1,2,1,0],[2,1,0,1,2],[0,0,1,2,2],[2,2,1,0,0],[1,0,1,2,1],[1,2,1,0,1],[0,1,1,1,2]];
     const mul: Record<string, Record<number, number>> = { '7️⃣': { 3: 80, 4: 250, 5: 1000 }, '💎': { 3: 40, 4: 100, 5: 500 }, '☢️': { 3: 20, 4: 50, 5: 200 }, '🍗': { 3: 10, 4: 30, 5: 100 }, '🔧': { 3: 5, 4: 15, 5: 50 } };
     const wildEnabled = isVipMode || betAmount >= 50;
@@ -260,65 +274,127 @@ export function Game() {
     if (isVipMode || betAmount >= 50) { allowed.add('🍗'); allowed.add('☢️'); }
     if (isVipMode || betAmount >= 100) { allowed.add('💎'); allowed.add('7️⃣'); }
 
-    let totalMult = 0, energyGain = 0, miniWin = false, majorWin = false, grandWin = false;
-    const wins: [number, number][] = [];
-    let winningLines = 0;
+    let grid = Array.from({ length: 3 }, () => Array.from({ length: 5 }, () => pick()));
 
-    for (const line of lines) {
-      const seq = line.map((r, c) => grid[r][c]);
-      let base_sym: string | null = null;
-      for (const s of seq) { if (s !== '🃏' && s !== '⭐' && s !== '💀') { base_sym = s; break; } }
-      if (!base_sym || !mul[base_sym] || !allowed.has(base_sym)) continue;
-      let len = 0;
-      const tempWins: [number, number][] = [];
-      for (let c = 0; c < 5; c++) {
-        const s = seq[c];
-        if (s === '⭐' || s === '💀') break;
-        if (s === base_sym || (wildEnabled && s === '🃏')) { len++; tempWins.push([line[c], c]); } else break;
+    const evalGrid = (g: string[][]) => {
+      let totalMult = 0, energyGain = 0, miniWin = false, majorWin = false, grandWin = false;
+      const wins: [number, number][] = [];
+      let winningLines = 0;
+      for (const line of lines) {
+        const seq = line.map((r, c) => g[r][c]);
+        let base_sym: string | null = null;
+        for (const s of seq) { if (s !== '🃏' && s !== '⭐' && s !== '💀') { base_sym = s; break; } }
+        if (!base_sym || !mul[base_sym] || !allowed.has(base_sym)) continue;
+        let len = 0;
+        const tempWins: [number, number][] = [];
+        for (let c = 0; c < 5; c++) {
+          const s = seq[c];
+          if (s === '⭐' || s === '💀') break;
+          if (s === base_sym || (wildEnabled && s === '🃏')) { len++; tempWins.push([line[c], c]); } else break;
+        }
+        if (len >= 3) {
+          wins.push(...tempWins);
+          totalMult += mul[base_sym][len] || 0;
+          winningLines++;
+          if (!(isFrenzy || isFrenzyS)) energyGain += len === 3 ? 1 : len === 4 ? 2 : 3;
+          if (len === 5) { if (base_sym === '☢️') miniWin = true; if (base_sym === '💎') majorWin = true; if (base_sym === '7️⃣') grandWin = true; }
+        }
       }
-      if (len >= 3) {
-        wins.push(...tempWins);
-        totalMult += mul[base_sym][len] || 0;
-        winningLines++;
-        if (!(isFrenzy || isFrenzyS)) energyGain += len === 3 ? 1 : len === 4 ? 2 : 3;
-        if (len === 5) { if (base_sym === '☢️') miniWin = true; if (base_sym === '💎') majorWin = true; if (base_sym === '7️⃣') grandWin = true; }
-      }
+      return { totalMult, energyGain, miniWin, majorWin, grandWin, wins, winningLines };
+    };
+
+    let result = evalGrid(grid);
+
+    const nearMissChance = 0.35;
+    if (result.totalMult === 0 && Math.random() < nearMissChance) {
+      const highSyms = isVipMode ? ['7️⃣', '💎'] : ['💎', '☢️'];
+      const target = highSyms[Math.floor(Math.random() * highSyms.length)];
+      const nearMissGrid = grid.map(row => [...row]);
+      const misCol = Math.floor(Math.random() * 3) + 2;
+      const misRow = Math.floor(Math.random() * 3);
+      for (let c = 0; c < misCol; c++) nearMissGrid[misRow][c] = target;
+      const offsetSym = ['🔧', '🍗', '💀'][Math.floor(Math.random() * 3)];
+      nearMissGrid[misRow][misCol] = offsetSym;
+      const nearResult = evalGrid(nearMissGrid);
+      if (nearResult.totalMult === 0) { grid = nearMissGrid; result = nearResult; }
     }
+
+    const drySpellAntiDrought = consecutiveLosses >= 6 && result.totalMult === 0;
+    if (drySpellAntiDrought) {
+      const fakeWinSym = '🔧';
+      const fakeRow = Math.floor(Math.random() * 3);
+      const fakeGrid = grid.map(row => [...row]);
+      for (let c = 0; c < 3; c++) fakeGrid[fakeRow][c] = fakeWinSym;
+      const fakeResult = evalGrid(fakeGrid);
+      if (fakeResult.totalMult > 0) { grid = fakeGrid; result = fakeResult; }
+    }
+
+    const { totalMult, energyGain, miniWin, majorWin, grandWin, wins, winningLines } = result;
 
     const scatters = grid.flat().filter(s => s === '⭐').length;
     const teaser = scatters >= 2 && [0, 1, 2, 3].some(c => [0, 1, 2].some(r => grid[r][c] === '⭐')) ? 4 : null;
     setTeaserCol(teaser); setSlotGrid(grid);
-    const baseDelay = teaser === 4 ? 3700 : 2000;
-    if (teaser === 4) setTimeout(() => { setSlotBanner('即将出免费摇奖...？！！'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }, 1400);
+    const baseDelay = teaser === 4 ? 1400 : 900;
+    if (teaser === 4) setTimeout(() => { setSlotBanner('即将出免费摇奖...？！！'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }, 600);
 
     setTimeout(() => {
       setWinningPositions(wins); setIsSpinning(false);
       if (scatters >= 3) {
         const add = scatters === 3 ? 5 : scatters === 4 ? 10 : 20;
         setFreeSpins(prev => prev + add);
-        setTimeout(() => { setSlotBanner(`获得 ${add} 次免费摇奖！`); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }, 500);
+        setTimeout(() => { setSlotBanner(`获得 ${add} 次免费摇奖！`); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }, 300);
       }
       const lineBet = betAmount / 10;
       const frenzyMult = (isFrenzy || isFrenzyS) ? (winningLines > 5 ? 2 : 1.5) : 1;
       const winAmount = Math.floor(totalMult * lineBet * frenzyMult);
 
-      if (miniWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.mini })); setJackpots(prev => ({ ...prev, mini: JACKPOT_BASES.mini })); setSlotBanner('MINI JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }
-      else if (majorWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.major })); setJackpots(prev => ({ ...prev, major: JACKPOT_BASES.major })); setSlotBanner('MAJOR JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }
-      else if (grandWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.grand })); setJackpots(prev => ({ ...prev, grand: JACKPOT_BASES.grand })); setSlotBanner('GRAND JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }
+      if (miniWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.mini })); setJackpots(prev => ({ ...prev, mini: JACKPOT_BASES.mini })); setSlotBanner('MINI JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }
+      else if (majorWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.major })); setJackpots(prev => ({ ...prev, major: JACKPOT_BASES.major })); setSlotBanner('MAJOR JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }
+      else if (grandWin) { setPlayer(p => ({ ...p, money: p.money + jackpots.grand })); setJackpots(prev => ({ ...prev, grand: JACKPOT_BASES.grand })); setSlotBanner('GRAND JACKPOT!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }
+
+      const newCores = energyCores + (totalMult > 0 ? 1 : 0);
+      const coresFull = newCores >= energyCoreTarget;
+
+      if (coresFull) {
+        setEnergyCores(0);
+        setFreeSpins(prev => prev + 5);
+        const bonusPrizes = [
+          `$${betAmount * 3}`,
+          `$${betAmount * 5}`,
+          `$${betAmount * 2}`,
+        ];
+        const presetReward = betAmount * [3, 5, 2][Math.floor(Math.random() * 3)];
+        setTimeout(() => {
+          setBonusChoice({ prizes: bonusPrizes, chosen: null, reward: presetReward });
+        }, 400);
+        setTimeout(() => { setSlotBanner('能量核心已满！触发奖励！'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }, 200);
+      } else {
+        setEnergyCores(newCores);
+      }
 
       if (winAmount > 0) {
+        const isLdwResult = !isFS && !isFrenzyS && !miniWin && !majorWin && !grandWin && winAmount < betAmount;
+        setIsLdw(isLdwResult);
         setPlayer(p => ({ ...p, money: p.money + winAmount, mood: Math.min(p.maxMood, p.mood + 5) }));
-        setSlotMoodMsg('心情 +5');
+        if (isLdwResult) {
+          setSlotMoodMsg(`WIN! +$${winAmount}`);
+          setTimeout(() => { setSlotBanner(`WIN! +$${winAmount}`); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 300); }, 200);
+        } else {
+          setSlotMoodMsg('心情 +5');
+        }
         addLog(`🎰 中奖！获得 $${winAmount}${(isFrenzy || isFrenzyS) ? ` (狂热 x${frenzyMult})` : ''}`);
+        setConsecutiveLosses(0);
       } else {
+        setIsLdw(false);
         setPlayer(p => ({ ...p, mood: Math.max(0, p.mood - 2) }));
         setSlotMoodMsg('心情 -2');
         addLog('🎰 未中奖。');
+        setConsecutiveLosses(prev => prev + 1);
       }
 
       if (!(isFrenzy || isFrenzyS)) {
         const newEnergy = energy + energyGain;
-        if (newEnergy >= ENERGY_CAP) { setEnergy(0); setFrenzySpins(prev => prev + 5); setIsFrenzy(true); if (!miniWin && !majorWin && !grandWin) setTimeout(() => { setSlotBanner('RADIATION FRENZY!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 600); }, 600); }
+        if (newEnergy >= ENERGY_CAP) { setEnergy(0); setFrenzySpins(prev => prev + 5); setIsFrenzy(true); if (!miniWin && !majorWin && !grandWin && !coresFull) setTimeout(() => { setSlotBanner('RADIATION FRENZY!'); setBannerBoost(true); setTimeout(() => setBannerBoost(false), 400); }, 500); }
         else { setEnergy(newEnergy); setIsFrenzy(false); }
       } else { if (frenzySpins === 0) setIsFrenzy(false); }
     }, baseDelay);
@@ -682,7 +758,7 @@ export function Game() {
                           <div className="w-8"></div>
                         </div>
                         {isVipMode && <div className="text-[10px] text-red-500 mb-2 mt-[-8px]">极品翻倍 | 骷髅剧增 | 下注上限 $5000</div>}
-                        <SlotMachine bet={betAmount} onSpin={handleSpin} isSpinning={isSpinning} result={slotGrid} moodMsg={slotMoodMsg} jackpots={jackpots} energy={energy} isFrenzy={isFrenzy || frenzySpins > 0} freeSpins={freeSpins} frenzySpins={frenzySpins} teaserCol={teaserCol} winningPositions={winningPositions} bannerText={slotBanner} bannerBoost={bannerBoost} isVipMode={isVipMode} energyCap={ENERGY_CAP} />
+                        <SlotMachine bet={betAmount} onSpin={handleSpin} isSpinning={isSpinning} result={slotGrid} moodMsg={slotMoodMsg} jackpots={jackpots} energy={energy} isFrenzy={isFrenzy || frenzySpins > 0} freeSpins={freeSpins} frenzySpins={frenzySpins} teaserCol={teaserCol} winningPositions={winningPositions} bannerText={slotBanner} bannerBoost={bannerBoost} isVipMode={isVipMode} energyCap={ENERGY_CAP} isLdw={isLdw} energyCores={energyCores} energyCoreTarget={energyCoreTarget} bonusChoice={bonusChoice} onBonusChoose={handleBonusChoose} />
                         <div className="flex gap-4 mt-2 w-full justify-center">
                           <button disabled={inSpecialMode || isSpinning} onClick={() => setBetAmount(Math.max(isVipMode ? 500 : 10, betAmount - (isVipMode ? 100 : 10)))} className={`bg-slate-700 px-4 py-2 rounded border border-slate-500 text-xl ${(inSpecialMode || isSpinning) ? 'opacity-50 cursor-not-allowed' : ''}`}>-</button>
                           <div className={`bg-black/50 px-6 py-2 rounded text-xl border border-slate-600 w-32 text-center ${isVipMode ? 'text-red-500' : 'text-yellow-500'}`}>${betAmount}</div>

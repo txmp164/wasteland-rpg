@@ -270,6 +270,51 @@ body {
   }
 }
 
+@keyframes ldw-flash {
+  0%, 100% {
+    box-shadow: 0 0 10px #ca8a04, 0 0 30px #ca8a04, inset 0 0 10px rgba(202,138,4,0.3);
+    background-color: rgba(202, 138, 4, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 25px #fde047, 0 0 60px #fde047, inset 0 0 20px rgba(253,224,71,0.5);
+    background-color: rgba(253, 224, 71, 0.25);
+  }
+}
+.ldw-flash {
+  animation: ldw-flash 0.4s ease-in-out 3;
+}
+
+@keyframes ldw-cell-pulse {
+  0%, 100% { border-color: #fde047; box-shadow: 0 0 8px #fde047; }
+  50% { border-color: #f59e0b; box-shadow: 0 0 20px #f59e0b, inset 0 0 10px rgba(245,158,11,0.3); }
+}
+.slot-cell.ldw-cell {
+  animation: ldw-cell-pulse 0.35s ease-in-out infinite;
+  background-color: rgba(253, 224, 71, 0.15);
+}
+
+@keyframes ldw-msg-flash {
+  0%, 100% { color: #fde047; text-shadow: 0 0 8px #ca8a04; }
+  50% { color: #f59e0b; text-shadow: 0 0 20px #fde047; }
+}
+.ldw-msg {
+  animation: ldw-msg-flash 0.4s ease-in-out 3;
+}
+
+@keyframes bonus-box-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.5);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.9), 0 0 40px rgba(250, 204, 21, 0.4);
+    transform: scale(1.05);
+  }
+}
+.bonus-box-pulse {
+  animation: bonus-box-pulse 1.2s ease-in-out infinite;
+}
+
 .scanline {
   width: 100%;
   height: 100px;
